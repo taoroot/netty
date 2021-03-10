@@ -269,12 +269,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        // TODO 为什么这里Netty要把 bind 放在 AbstractBootstrap 类里面, 不是应该放在 ServerBootstrap 里面吗 ?
+        // TODO 不是只有服务端有bind端口功能吗
+        // 创建并注册 Channel, 注册是异步过程, (初始化部分任务会以异步Task形式在注册以后执行)
         final ChannelFuture regFuture = initAndRegister();
-        final Channel channel = regFuture.channel();
-        if (regFuture.cause() != null) {
+        final Channel channel = regFuture.channel(); // 创建对象是同步完成
+        if (regFuture.cause() != null) { // 非阻塞方法
             return regFuture;
         }
 
+        // 非阻塞方法不一定已完成
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
@@ -307,6 +311,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            // 泛型放射 + 工厂模式 创建
             channel = channelFactory.newChannel();
             init(channel);
         } catch (Throwable t) {
@@ -320,6 +325,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        // 注册到 selector 中
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -349,6 +355,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+        // channel 注册到 selector 以后, 会同步执行 pipeline handler 添加任务
+        // 会出发 handler 的 added 事件, 如果处理不好, 就可以导致异常
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {

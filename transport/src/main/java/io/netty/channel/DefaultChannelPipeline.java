@@ -203,23 +203,29 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
             newCtx = newContext(group, filterName(name, handler), handler);
 
+            // 添加到列表上(没生效)
             addLast0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
+            // 如果 registered 为 false, 意味着 channel 还没注册到 eventLoop
+            // 在这种情况下, 我们将把 context 对象加载到 pipeline 的操作 封装成一个任务,
+            // 他讲在 ChannelHandler.handlerAdded(...) 中执行, 而这个方法是在 channel 被注册以后执行的
             if (!registered) {
                 newCtx.setAddPending();
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
 
+            // 已经注册,当时被外部线程调用添加
             EventExecutor executor = newCtx.executor();
             if (!executor.inEventLoop()) {
                 callHandlerAddedInEventLoop(newCtx, executor);
                 return this;
             }
         }
+        // 如果当前在本channel的io线程中,则直接执行 ChannelHandler.handlerAdded(...)
         callHandlerAdded0(newCtx);
         return this;
     }
